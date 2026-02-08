@@ -1,8 +1,8 @@
 /**
  * ============================================
- * STORAGE MODULE - V4 CLOUD SYNC
+ * STORAGE MODULE - V5 CLOUD SYNC WITH STATUS
  * Everything syncs to Google Sheets!
- * Works across all devices
+ * Shows sync status so you know it's working
  * ============================================
  */
 
@@ -35,16 +35,24 @@ const Storage = {
   },
 
   saveProducts(products) {
+    // Save locally first (instant)
     localStorage.setItem(this.KEYS.PRODUCTS, JSON.stringify(products));
+    
+    // Then sync to cloud (async)
     this.syncProductsToCloud(products);
   },
 
   async syncProductsToCloud(products) {
     const scriptUrl = this.getScriptUrl();
-    if (!scriptUrl) return;
+    if (!scriptUrl) {
+      console.warn('⚠️ No Google Script URL configured. Products not synced to cloud.');
+      return;
+    }
     
     try {
-      await fetch(scriptUrl, {
+      console.log('🔄 Syncing products to Google Sheets...');
+      
+      const response = await fetch(scriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -52,29 +60,47 @@ const Storage = {
           products: products
         })
       });
-      console.log('✅ Products synced to cloud');
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Products synced to Google Sheets!');
+        this.showSyncToast('✅ Synced to cloud');
+      } else {
+        console.error('❌ Sync failed:', result.error);
+        this.showSyncToast('⚠️ Sync failed', 'error');
+      }
     } catch (e) {
-      console.warn('Could not sync products to cloud:', e);
+      console.error('❌ Could not sync products to cloud:', e);
+      this.showSyncToast('⚠️ Sync failed - check console', 'error');
     }
   },
 
   async loadProductsFromCloud() {
     const scriptUrl = this.getScriptUrl();
-    if (!scriptUrl) return false;
+    if (!scriptUrl) {
+      console.warn('⚠️ No Google Script URL configured');
+      return false;
+    }
     
     try {
+      console.log('🔄 Loading products from Google Sheets...');
+      
       const response = await fetch(`${scriptUrl}?action=getProducts`);
       const data = await response.json();
       
       if (data.success && data.products) {
         localStorage.setItem(this.KEYS.PRODUCTS, JSON.stringify(data.products));
-        console.log(`✅ Loaded ${data.products.length} products from cloud`);
+        console.log(`✅ Loaded ${data.products.length} products from Google Sheets`);
         return true;
+      } else {
+        console.warn('⚠️ No products returned from cloud');
+        return false;
       }
     } catch (e) {
-      console.warn('Could not load products from cloud:', e);
+      console.error('❌ Could not load products from cloud:', e);
+      return false;
     }
-    return false;
   },
 
   addProduct(product) {
@@ -205,10 +231,15 @@ const Storage = {
 
   async syncSettingsToCloud(settings) {
     const scriptUrl = settings.googleScriptUrl;
-    if (!scriptUrl) return;
+    if (!scriptUrl) {
+      console.warn('⚠️ No Google Script URL to sync settings');
+      return;
+    }
     
     try {
-      await fetch(scriptUrl, {
+      console.log('🔄 Syncing settings to Google Sheets...');
+      
+      const response = await fetch(scriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -216,18 +247,31 @@ const Storage = {
           settings: settings
         })
       });
-      console.log('✅ Settings synced to cloud');
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Settings synced to Google Sheets');
+        this.showSyncToast('✅ Settings saved to cloud');
+      } else {
+        console.error('❌ Settings sync failed:', result.error);
+      }
     } catch (e) {
-      console.warn('Could not sync settings to cloud:', e);
+      console.error('❌ Could not sync settings to cloud:', e);
     }
   },
 
   async loadSettingsFromCloud() {
     const settings = this.getSettingsLocal();
     const scriptUrl = settings.googleScriptUrl;
-    if (!scriptUrl) return false;
+    if (!scriptUrl) {
+      console.warn('⚠️ No Google Script URL configured');
+      return false;
+    }
     
     try {
+      console.log('🔄 Loading settings from Google Sheets...');
+      
       const response = await fetch(`${scriptUrl}?action=getSettings`);
       const data = await response.json();
       
@@ -235,11 +279,11 @@ const Storage = {
         // Merge with local settings (keep googleScriptUrl from local)
         const merged = { ...data.settings, googleScriptUrl: scriptUrl };
         localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(merged));
-        console.log('✅ Settings loaded from cloud');
+        console.log('✅ Settings loaded from Google Sheets');
         return true;
       }
     } catch (e) {
-      console.warn('Could not load settings from cloud:', e);
+      console.error('❌ Could not load settings from cloud:', e);
     }
     return false;
   },
@@ -338,10 +382,48 @@ const Storage = {
   // ============================================
 
   async syncAllFromCloud() {
-    console.log('🔄 Syncing from cloud...');
-    await this.loadProductsFromCloud();
-    await this.loadSettingsFromCloud();
-    console.log('✅ Cloud sync complete!');
+    console.log('🔄 Syncing all data from Google Sheets...');
+    
+    const productsLoaded = await this.loadProductsFromCloud();
+    const settingsLoaded = await this.loadSettingsFromCloud();
+    
+    if (productsLoaded || settingsLoaded) {
+      console.log('✅ Cloud sync complete!');
+      this.showSyncToast('✅ Loaded from cloud');
+    } else {
+      console.log('ℹ️ No cloud data found or sync disabled');
+    }
+  },
+
+  // ============================================
+  // SYNC TOAST NOTIFICATION
+  // ============================================
+
+  showSyncToast(message, type = 'success') {
+    // Check if showToast function exists globally
+    if (typeof showToast === 'function') {
+      showToast(message, type);
+      return;
+    }
+
+    // Fallback: create our own toast
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: ${type === 'error' ? '#ff4757' : '#2ed573'};
+      color: white;
+      border-radius: 6px;
+      font-size: 13px;
+      z-index: 9999;
+      animation: slideUp 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
   }
 };
 
