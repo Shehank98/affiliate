@@ -1,7 +1,7 @@
 /**
  * ============================================
- * STORAGE MODULE - V2
- * With subscriber management
+ * STORAGE MODULE - V3
+ * Fixed: Products persist, subscribers sync with Google Sheets
  * ============================================
  */
 
@@ -35,7 +35,7 @@ const Storage = {
     const products = this.getProducts();
     const newProduct = {
       ...product,
-      id: 'p_' + Date.now(),
+      id: 'p_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
       createdAt: new Date().toISOString(),
       selected: false
     };
@@ -87,7 +87,7 @@ const Storage = {
   },
 
   // ============================================
-  // SUBSCRIBERS
+  // SUBSCRIBERS - FIXED FOR GOOGLE SHEETS SYNC
   // ============================================
 
   getSubscribers() {
@@ -104,18 +104,33 @@ const Storage = {
 
   addSubscriber(email) {
     const subscribers = this.getSubscribers();
-    // Check duplicate
-    if (subscribers.some(s => s.email === email)) {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check duplicate (case-insensitive)
+    if (subscribers.some(s => s.email.toLowerCase() === normalizedEmail)) {
+      console.log('Subscriber already exists:', normalizedEmail);
       return null;
     }
+    
     const newSub = {
-      id: 's_' + Date.now(),
-      email: email,
+      id: 's_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+      email: normalizedEmail,
       addedAt: new Date().toISOString()
     };
     subscribers.unshift(newSub);
     this.saveSubscribers(subscribers);
     return newSub;
+  },
+
+  // NEW: Replace all subscribers (for Google Sheets sync)
+  replaceAllSubscribers(emails) {
+    const newSubscribers = emails.map((email, index) => ({
+      id: 's_sync_' + Date.now() + '_' + index,
+      email: typeof email === 'string' ? email.toLowerCase().trim() : email.email.toLowerCase().trim(),
+      addedAt: new Date().toISOString()
+    }));
+    this.saveSubscribers(newSubscribers);
+    console.log(`Replaced all subscribers with ${newSubscribers.length} from Google Sheets`);
   },
 
   removeSubscriber(id) {
@@ -222,6 +237,11 @@ const Storage = {
 
   clearAll() {
     Object.values(this.KEYS).forEach(key => localStorage.removeItem(key));
+  },
+
+  // Clear only subscribers (useful for re-syncing from Google Sheets)
+  clearSubscribers() {
+    localStorage.removeItem(this.KEYS.SUBSCRIBERS);
   }
 };
 
