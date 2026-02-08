@@ -52,20 +52,16 @@ async function syncSubscribersFromSheet() {
     if (data.success && data.subscribers && Array.isArray(data.subscribers)) {
       console.log(`✅ Loaded ${data.subscribers.length} subscribers from Google Sheets`);
       
-      // Clear local storage
-      localStorage.removeItem('affiliate_subscribers');
+      // Use the new replaceAllSubscribers method (ONLY clears subscribers, not products!)
+      const emails = data.subscribers
+        .filter(sub => sub.email && sub.email.includes('@'))
+        .map(sub => sub.email);
       
-      // Add each subscriber to local storage
-      data.subscribers.forEach(sub => {
-        // Only add if it's a valid email
-        if (sub.email && sub.email.includes('@')) {
-          Storage.addSubscriber(sub.email);
-        }
-      });
+      Storage.replaceAllSubscribers(emails);
       
       loadSubscribers();
       loadStats();
-      showToast(`✅ Synced ${data.subscribers.length} subscribers from Google Sheets`);
+      showToast(`✅ Synced ${emails.length} subscribers from Google Sheets`);
     } else {
       throw new Error('Invalid response from Google Sheets');
     }
