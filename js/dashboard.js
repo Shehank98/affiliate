@@ -16,9 +16,16 @@ let currentAffiliateLink = '';
 // INITIALIZATION
 // ============================================
 
-function initDashboard() {
+async function initDashboard() {
+  // Show loading
+  showToast('Loading from cloud...', 'info');
+  
+  // Sync from cloud first
+  await Storage.syncAllFromCloud();
+  
+  // Then load everything
   loadProducts();
-  syncSubscribersFromSheet(); // Load from Google Sheets first
+  syncSubscribersFromSheet();
   loadStats();
 }
 
