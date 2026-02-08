@@ -1,7 +1,8 @@
 /**
  * ============================================
- * STORAGE MODULE - V3
- * Fixed: Products persist, subscribers sync with Google Sheets
+ * STORAGE MODULE - V4 CLOUD SYNC
+ * Everything syncs to Google Sheets!
+ * Works across all devices
  * ============================================
  */
 
@@ -15,8 +16,14 @@ const Storage = {
     FB_HISTORY: 'aff_fb_history'
   },
 
+  // Get Google Script URL
+  getScriptUrl() {
+    const settings = this.getSettingsLocal();
+    return settings.googleScriptUrl || '';
+  },
+
   // ============================================
-  // PRODUCTS
+  // PRODUCTS - CLOUD SYNCED
   // ============================================
   
   getProducts() {
@@ -29,6 +36,45 @@ const Storage = {
 
   saveProducts(products) {
     localStorage.setItem(this.KEYS.PRODUCTS, JSON.stringify(products));
+    this.syncProductsToCloud(products);
+  },
+
+  async syncProductsToCloud(products) {
+    const scriptUrl = this.getScriptUrl();
+    if (!scriptUrl) return;
+    
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveProducts',
+          products: products
+        })
+      });
+      console.log('✅ Products synced to cloud');
+    } catch (e) {
+      console.warn('Could not sync products to cloud:', e);
+    }
+  },
+
+  async loadProductsFromCloud() {
+    const scriptUrl = this.getScriptUrl();
+    if (!scriptUrl) return false;
+    
+    try {
+      const response = await fetch(`${scriptUrl}?action=getProducts`);
+      const data = await response.json();
+      
+      if (data.success && data.products) {
+        localStorage.setItem(this.KEYS.PRODUCTS, JSON.stringify(data.products));
+        console.log(`✅ Loaded ${data.products.length} products from cloud`);
+        return true;
+      }
+    } catch (e) {
+      console.warn('Could not load products from cloud:', e);
+    }
+    return false;
   },
 
   addProduct(product) {
@@ -39,7 +85,7 @@ const Storage = {
       createdAt: new Date().toISOString(),
       selected: false
     };
-    products.unshift(newProduct); // Add to beginning
+    products.unshift(newProduct);
     this.saveProducts(products);
     return newProduct;
   },
@@ -87,7 +133,7 @@ const Storage = {
   },
 
   // ============================================
-  // SUBSCRIBERS - FIXED FOR GOOGLE SHEETS SYNC
+  // SUBSCRIBERS - CLOUD SYNCED
   // ============================================
 
   getSubscribers() {
@@ -106,7 +152,6 @@ const Storage = {
     const subscribers = this.getSubscribers();
     const normalizedEmail = email.toLowerCase().trim();
     
-    // Check duplicate (case-insensitive)
     if (subscribers.some(s => s.email.toLowerCase() === normalizedEmail)) {
       console.log('Subscriber already exists:', normalizedEmail);
       return null;
@@ -122,7 +167,6 @@ const Storage = {
     return newSub;
   },
 
-  // NEW: Replace all subscribers (for Google Sheets sync)
   replaceAllSubscribers(emails) {
     const newSubscribers = emails.map((email, index) => ({
       id: 's_sync_' + Date.now() + '_' + index,
@@ -139,10 +183,10 @@ const Storage = {
   },
 
   // ============================================
-  // SETTINGS
+  // SETTINGS - CLOUD SYNCED
   // ============================================
 
-  getSettings() {
+  getSettingsLocal() {
     try {
       return JSON.parse(localStorage.getItem(this.KEYS.SETTINGS) || '{}');
     } catch (e) {
@@ -150,8 +194,54 @@ const Storage = {
     }
   },
 
+  getSettings() {
+    return this.getSettingsLocal();
+  },
+
   saveSettings(settings) {
     localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(settings));
+    this.syncSettingsToCloud(settings);
+  },
+
+  async syncSettingsToCloud(settings) {
+    const scriptUrl = settings.googleScriptUrl;
+    if (!scriptUrl) return;
+    
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'saveSettings',
+          settings: settings
+        })
+      });
+      console.log('✅ Settings synced to cloud');
+    } catch (e) {
+      console.warn('Could not sync settings to cloud:', e);
+    }
+  },
+
+  async loadSettingsFromCloud() {
+    const settings = this.getSettingsLocal();
+    const scriptUrl = settings.googleScriptUrl;
+    if (!scriptUrl) return false;
+    
+    try {
+      const response = await fetch(`${scriptUrl}?action=getSettings`);
+      const data = await response.json();
+      
+      if (data.success && data.settings) {
+        // Merge with local settings (keep googleScriptUrl from local)
+        const merged = { ...data.settings, googleScriptUrl: scriptUrl };
+        localStorage.setItem(this.KEYS.SETTINGS, JSON.stringify(merged));
+        console.log('✅ Settings loaded from cloud');
+        return true;
+      }
+    } catch (e) {
+      console.warn('Could not load settings from cloud:', e);
+    }
+    return false;
   },
 
   // ============================================
@@ -239,9 +329,19 @@ const Storage = {
     Object.values(this.KEYS).forEach(key => localStorage.removeItem(key));
   },
 
-  // Clear only subscribers (useful for re-syncing from Google Sheets)
   clearSubscribers() {
     localStorage.removeItem(this.KEYS.SUBSCRIBERS);
+  },
+
+  // ============================================
+  // CLOUD SYNC - LOAD ALL
+  // ============================================
+
+  async syncAllFromCloud() {
+    console.log('🔄 Syncing from cloud...');
+    await this.loadProductsFromCloud();
+    await this.loadSettingsFromCloud();
+    console.log('✅ Cloud sync complete!');
   }
 };
 
@@ -259,7 +359,6 @@ const ScoreCalculator = {
     const platform = this.PLATFORM[product.platform] || 60;
     const category = this.CATEGORY[product.category] || 60;
 
-    // Price score (lower price = higher score for cheap deals)
     let priceScore = 100;
     if (price > 1.5) priceScore = 70;
     else if (price > 1) priceScore = 80;
@@ -267,7 +366,6 @@ const ScoreCalculator = {
 
     const ratingScore = (rating / 5) * 100;
 
-    // Weighted average
     const score = (
       priceScore * 0.25 +
       ratingScore * 0.30 +
