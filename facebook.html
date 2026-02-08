@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facebook Posts - Affiliate Hub</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h2>💰 Affiliate Hub</h2></div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+        <a href="email.html"><span class="icon">📧</span> Email</a>
+        <a href="telegram.html"><span class="icon">✈️</span> Telegram</a>
+        <a href="facebook.html" class="active"><span class="icon">📘</span> FB Posts</a>
+        <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="userEmail"></div>
+        <button class="btn btn-secondary btn-sm btn-block" onclick="Auth.logout()">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>📘 Facebook Posts</h3>
+          <a href="dashboard.html" class="btn btn-sm btn-secondary">← Back</a>
+        </div>
+        
+        <div class="alert alert-info">
+          💡 Generate posts, copy captions, download images, then manually post to Facebook.
+          <br><small>Tip: Add affiliate link in the first COMMENT, not the main post.</small>
+        </div>
+
+        <div class="form-row mb-15">
+          <div class="form-group">
+            <label>Post Style</label>
+            <select id="postStyle" onchange="regenerate()">
+              <option value="deal">🔥 Hot Deal</option>
+              <option value="question">❓ Question</option>
+              <option value="urgency">⏰ Urgency</option>
+              <option value="simple">📝 Simple</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Custom Hashtags</label>
+            <input type="text" id="hashtags" placeholder="#deals #shopping" onchange="regenerate()">
+          </div>
+        </div>
+
+        <button class="btn btn-secondary" onclick="downloadAll()">💾 Download All Posts</button>
+      </div>
+
+      <!-- Generated Posts -->
+      <div id="postsContainer"></div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/facebook.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!Auth.requireAuth()) return;
+      document.getElementById('userEmail').textContent = Auth.getEmail();
+      initFacebook();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - Affiliate Hub</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h2>💰 Affiliate Hub</h2></div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+        <a href="email.html"><span class="icon">📧</span> Email</a>
+        <a href="telegram.html"><span class="icon">✈️</span> Telegram</a>
+        <a href="facebook.html"><span class="icon">📘</span> FB Posts</a>
+        <a href="settings.html" class="active"><span class="icon">⚙️</span> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="userEmail"></div>
+        <button class="btn btn-secondary btn-sm btn-block" onclick="Auth.logout()">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <!-- Google Apps Script -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📧 Email Settings</h3>
+          <span class="badge" id="gasStatus">Not Set</span>
+        </div>
+        
+        <div class="alert alert-info mb-15">
+          <strong>Quick Setup:</strong>
+          <ol style="margin: 10px 0 0 20px; line-height: 2;">
+            <li>Create Google Sheet → Extensions → Apps Script</li>
+            <li>Copy code below, paste in Apps Script</li>
+            <li>Deploy → Web App → Anyone can access</li>
+            <li>Paste URL below</li>
+          </ol>
+          <button class="btn btn-sm btn-secondary mt-15" onclick="showCode()">📄 Show Setup Code</button>
+        </div>
+        
+        <div class="form-group">
+          <label>Google Apps Script URL</label>
+          <input type="url" id="gasUrl" placeholder="https://script.google.com/macros/s/...">
+        </div>
+        
+        <button class="btn btn-primary" onclick="saveGas()">💾 Save</button>
+      </div>
+
+      <!-- Email Customization -->
+      <div class="card">
+        <div class="card-header"><h3>✉️ Email Customization</h3></div>
+        
+        <div class="form-group">
+          <label>Affiliate Disclosure</label>
+          <textarea id="disclosure" rows="2">This email contains affiliate links. We may earn a commission if you make a purchase.</textarea>
+        </div>
+        
+        <div class="form-group">
+          <label>Unsubscribe Link</label>
+          <input type="url" id="unsubscribe" placeholder="https://yoursite.com/unsubscribe">
+        </div>
+        
+        <button class="btn btn-primary" onclick="saveEmail()">💾 Save</button>
+      </div>
+
+      <!-- Data Management -->
+      <div class="card">
+        <div class="card-header"><h3>📁 Data Management</h3></div>
+        
+        <div class="mb-15">
+          <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 10px;">Export all your data (products, subscribers, settings)</p>
+          <button class="btn btn-secondary" onclick="exportData()">📤 Export Data</button>
+        </div>
+        
+        <div class="mb-15">
+          <p style="font-size: 13px; color: var(--text-dim); margin-bottom: 10px;">Import from backup file</p>
+          <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+          <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📥 Import Data</button>
+        </div>
+        
+        <div>
+          <p style="font-size: 13px; color: var(--danger); margin-bottom: 10px;">Delete all data (cannot be undone)</p>
+          <button class="btn btn-danger" onclick="clearData()">🗑️ Clear All Data</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="card">
+        <div class="card-header"><h3>📊 Statistics</h3></div>
+        <table>
+          <tr><td style="color:var(--text-dim)">Products</td><td id="statProducts">0</td></tr>
+          <tr><td style="color:var(--text-dim)">Subscribers</td><td id="statSubs">0</td></tr>
+          <tr><td style="color:var(--text-dim)">Emails Sent</td><td id="statEmails">0</td></tr>
+          <tr><td style="color:var(--text-dim)">FB Posts</td><td id="statFb">0</td></tr>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- Code Modal -->
+  <div class="modal-overlay" id="codeModal">
+    <div class="modal" style="max-width: 700px;">
+      <div class="modal-header">
+        <h3>Google Apps Script Code</h3>
+        <button class="modal-close" onclick="closeCode()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <pre id="gasCode" style="background:var(--bg); padding:15px; border-radius:8px; font-size:11px; overflow-x:auto; white-space:pre-wrap;"></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeCode()">Close</button>
+        <button class="btn btn-primary" onclick="copyCode()">📋 Copy Code</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/settings.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!Auth.requireAuth()) return;
+      document.getElementById('userEmail').textContent = Auth.getEmail();
+      initSettings();
+    });
+  </script>
+</body>
+</html>

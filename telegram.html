@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegram & Social - Affiliate Hub</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h2>💰 Affiliate Hub</h2></div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+        <a href="email.html"><span class="icon">📧</span> Email</a>
+        <a href="telegram.html" class="active"><span class="icon">✈️</span> Telegram</a>
+        <a href="facebook.html"><span class="icon">📘</span> Facebook</a>
+        <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="userEmail"></div>
+        <button class="btn btn-secondary btn-sm btn-block" onclick="Auth.logout()">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h1>✈️ Telegram Auto-Post</h1>
+        <p>Automatically post products to your Telegram channel</p>
+      </div>
+
+      <!-- Setup Guide -->
+      <div class="card" id="setupGuide">
+        <div class="card-header">
+          <h3>⚙️ One-Time Setup (5 minutes)</h3>
+          <button class="btn btn-sm btn-secondary" onclick="toggleSetup()">Hide</button>
+        </div>
+        
+        <div id="setupContent">
+          <div class="setup-steps">
+            <div class="setup-step">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <h4>Create Telegram Bot</h4>
+                <p>Open Telegram, search for <strong>@BotFather</strong></p>
+                <p>Send: <code>/newbot</code></p>
+                <p>Follow instructions, get your <strong>Bot Token</strong></p>
+              </div>
+            </div>
+            
+            <div class="setup-step">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <h4>Create Your Channel</h4>
+                <p>Create a new Telegram Channel (public or private)</p>
+                <p>For public: note your channel username (e.g., @mydeals)</p>
+                <p>For private: we'll get the ID later</p>
+              </div>
+            </div>
+            
+            <div class="setup-step">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <h4>Add Bot as Admin</h4>
+                <p>Go to Channel Settings → Administrators</p>
+                <p>Add your bot as admin with "Post Messages" permission</p>
+              </div>
+            </div>
+            
+            <div class="setup-step">
+              <div class="step-number">4</div>
+              <div class="step-content">
+                <h4>Enter Details Below</h4>
+                <p>Paste your Bot Token and Channel ID below</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Telegram Settings -->
+      <div class="card">
+        <div class="card-header">
+          <h3>🔑 Telegram Configuration</h3>
+          <span class="badge" id="tgStatus">Not Connected</span>
+        </div>
+        
+        <div class="form-group">
+          <label>Bot Token</label>
+          <input type="text" id="botToken" placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz">
+          <small>Get this from @BotFather</small>
+        </div>
+        
+        <div class="form-group">
+          <label>Channel ID or Username</label>
+          <input type="text" id="channelId" placeholder="@yourchannel or -1001234567890">
+          <small>Public: @username | Private: -100xxxxxxxxxx</small>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="saveTelegramSettings()">💾 Save Settings</button>
+          <button class="btn btn-secondary" onclick="testConnection()">🔗 Test Connection</button>
+          <button class="btn btn-secondary" onclick="getChannelId()">🔍 Get Channel ID</button>
+        </div>
+      </div>
+
+      <!-- Selected Products -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📦 Products to Post (<span id="productCount">0</span>)</h3>
+          <a href="dashboard.html" class="btn btn-sm btn-secondary">+ Select More</a>
+        </div>
+        <div id="productList"></div>
+      </div>
+
+      <!-- Post Settings -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📝 Post Template</h3>
+        </div>
+        
+        <div class="form-group">
+          <label>Post Style</label>
+          <select id="postStyle" onchange="updatePreview()">
+            <option value="clean">Clean & Minimal</option>
+            <option value="detailed">Detailed with Rating</option>
+            <option value="urgent">Urgent Style</option>
+            <option value="simple">Simple One-Liner</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Include Image?</label>
+          <select id="includeImage">
+            <option value="yes">Yes - Post with image</option>
+            <option value="no">No - Text only</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Post Preview</label>
+          <div id="postPreview" class="telegram-preview"></div>
+        </div>
+      </div>
+
+      <!-- Post Actions -->
+      <div class="card">
+        <div class="card-header">
+          <h3>🚀 Post to Telegram</h3>
+        </div>
+        
+        <div class="btn-group">
+          <button class="btn btn-primary btn-lg" onclick="postAllToTelegram()">
+            ✈️ Post All Products Now
+          </button>
+          <button class="btn btn-secondary" onclick="postOneByOne()">
+            📤 Post One by One (with delay)
+          </button>
+        </div>
+        
+        <div id="postProgress" class="progress-container hidden">
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+          <p id="progressText">Posting...</p>
+        </div>
+      </div>
+
+      <!-- Other Platforms -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📱 Other Platforms (Manual)</h3>
+        </div>
+        
+        <p style="color: var(--text-dim); margin-bottom: 15px;">These platforms don't support auto-posting. Use these quick actions:</p>
+        
+        <div class="platform-grid">
+          <div class="platform-card">
+            <div class="platform-icon">📘</div>
+            <h4>Facebook</h4>
+            <p>Copy captions & download images</p>
+            <a href="facebook.html" class="btn btn-sm btn-secondary">Open Facebook Tool</a>
+          </div>
+          
+          <div class="platform-card">
+            <div class="platform-icon">📸</div>
+            <h4>Instagram</h4>
+            <button class="btn btn-sm btn-secondary" onclick="copyForInstagram()">Copy for Instagram</button>
+          </div>
+          
+          <div class="platform-card">
+            <div class="platform-icon">💬</div>
+            <h4>WhatsApp</h4>
+            <button class="btn btn-sm btn-secondary" onclick="copyForWhatsApp()">Copy for WhatsApp</button>
+          </div>
+          
+          <div class="platform-card">
+            <div class="platform-icon">🐦</div>
+            <h4>Twitter/X</h4>
+            <button class="btn btn-sm btn-secondary" onclick="copyForTwitter()">Copy for Twitter</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/telegram.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!Auth.requireAuth()) return;
+      document.getElementById('userEmail').textContent = Auth.getEmail();
+      initTelegram();
+    });
+  </script>
+</body>
+</html>

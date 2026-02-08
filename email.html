@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Campaign - Affiliate Hub</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .template-select {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .template-option {
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 15px;
+      cursor: pointer;
+      text-align: center;
+      transition: 0.2s;
+    }
+    .template-option:hover {
+      border-color: #444;
+    }
+    .template-option.active {
+      border-color: var(--accent);
+      background: rgba(0,212,170,0.05);
+    }
+    .template-option .preview-img {
+      width: 100%;
+      height: 100px;
+      background: var(--bg-card);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+    .template-option h4 {
+      margin: 0 0 5px;
+      font-size: 14px;
+    }
+    .template-option p {
+      margin: 0;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="sidebar-header"><h2>💰 Affiliate Hub</h2></div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+        <a href="email.html" class="active"><span class="icon">📧</span> Email</a>
+        <a href="telegram.html"><span class="icon">✈️</span> Telegram</a>
+        <a href="facebook.html"><span class="icon">📘</span> Facebook</a>
+        <a href="settings.html"><span class="icon">⚙️</span> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info" id="userEmail"></div>
+        <button class="btn btn-secondary btn-sm btn-block" onclick="Auth.logout()">🚪 Logout</button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <div class="card">
+        <div class="card-header">
+          <h3>📧 Email Campaign</h3>
+          <a href="dashboard.html" class="btn btn-sm btn-secondary">← Back</a>
+        </div>
+        
+        <div id="noScript" class="alert alert-warning hidden">
+          ⚠️ Configure Google Apps Script in <a href="settings.html">Settings</a> to send emails.
+        </div>
+
+        <!-- Products -->
+        <div class="mb-15">
+          <label style="font-size: 12px; color: var(--text-dim);">Products in this email (<span id="productCount">0</span>)</label>
+          <div id="productList" style="margin-top: 8px;"></div>
+        </div>
+      </div>
+
+      <!-- Template Selection -->
+      <div class="card">
+        <h3 style="margin-bottom: 15px;">Choose Template</h3>
+        <div class="template-select">
+          <div class="template-option active" onclick="selectTemplate('minimal')">
+            <div class="preview-img">🍎</div>
+            <h4>Minimal</h4>
+            <p>Clean, Apple-style design</p>
+          </div>
+          <div class="template-option" onclick="selectTemplate('magazine')">
+            <div class="preview-img">📰</div>
+            <h4>Magazine</h4>
+            <p>Editorial with featured item</p>
+          </div>
+          <div class="template-option" onclick="selectTemplate('grid')">
+            <div class="preview-img">🎨</div>
+            <h4>Grid</h4>
+            <p>Modern catalog layout</p>
+          </div>
+        </div>
+        <select id="templateSelect" style="display:none;" onchange="generatePreview()">
+          <option value="minimal" selected>Minimal</option>
+          <option value="magazine">Magazine</option>
+          <option value="grid">Grid</option>
+        </select>
+      </div>
+
+      <!-- Email Config -->
+      <div class="card">
+        <h3 style="margin-bottom: 15px;">Customize</h3>
+        <div class="form-row mb-15">
+          <div class="form-group">
+            <label>Email Subject</label>
+            <input type="text" id="emailSubject" value="This Week's Top Finds">
+          </div>
+          <div class="form-group">
+            <label>Brand Name</label>
+            <input type="text" id="brandName" value="Weekly Picks" placeholder="Your newsletter name">
+          </div>
+        </div>
+
+        <div class="form-group mb-15">
+          <label>Intro Message</label>
+          <textarea id="introText" rows="2">Hi there! Here are some great finds I wanted to share with you this week. Each item has been hand-picked for quality and value.</textarea>
+        </div>
+
+        <button class="btn btn-primary" onclick="generatePreview()">🔄 Update Preview</button>
+      </div>
+
+      <!-- Preview & Code -->
+      <div class="email-preview-wrap">
+        <div class="card">
+          <div class="card-header"><h3>👁️ Preview</h3></div>
+          <div id="preview" class="email-preview" style="max-height: 600px; overflow-y: auto;">
+            <p style="color: #888; text-align: center;">Select products and click Update Preview</p>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-header">
+            <h3>📝 HTML</h3>
+            <button class="btn btn-sm btn-secondary" onclick="copyHtml()">📋 Copy</button>
+          </div>
+          <textarea id="htmlCode" style="width:100%; height:300px; font-family:monospace; font-size:11px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; color:var(--text);"></textarea>
+        </div>
+      </div>
+
+      <!-- Send -->
+      <div class="card">
+        <div class="card-header"><h3>🚀 Send</h3></div>
+        <div class="form-row mb-15">
+          <div class="form-group">
+            <label>Test Email</label>
+            <input type="email" id="testEmail" placeholder="your@email.com">
+          </div>
+          <div class="form-group" style="display: flex; align-items: flex-end;">
+            <button class="btn btn-secondary btn-block" onclick="sendTest()">📨 Send Test</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <button class="btn btn-primary btn-block" onclick="sendToAll()">🚀 Send to All Subscribers</button>
+          <button class="btn btn-secondary btn-block" onclick="downloadHtml()">💾 Download HTML</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/email.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!Auth.requireAuth()) return;
+      document.getElementById('userEmail').textContent = Auth.getEmail();
+      initEmail();
+    });
+
+    function selectTemplate(template) {
+      document.querySelectorAll('.template-option').forEach(el => el.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+      document.getElementById('templateSelect').value = template;
+      generatePreview();
+    }
+  </script>
+</body>
+</html>

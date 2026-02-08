@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Affiliate Hub</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>💰 Affiliate Hub</h2>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="active">
+          <span class="icon">📊</span>
+          Dashboard
+        </a>
+        <a href="email.html">
+          <span class="icon">📧</span>
+          Email
+        </a>
+        <a href="telegram.html">
+          <span class="icon">✈️</span>
+          Share
+        </a>
+        <a href="facebook.html">
+          <span class="icon">📘</span>
+          FB Posts
+        </a>
+        <a href="settings.html">
+          <span class="icon">⚙️</span>
+          Settings
+        </a>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <div class="user-info" id="userEmail">Loading...</div>
+        <button class="btn btn-secondary btn-sm btn-block" onclick="Auth.logout()">
+          🚪 Logout
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Quick Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="icon">📦</div>
+          <div class="value" id="totalProducts">0</div>
+          <div class="label">Products</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">✅</div>
+          <div class="value" id="selectedProducts">0</div>
+          <div class="label">Selected</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">👥</div>
+          <div class="value" id="totalSubscribers">0</div>
+          <div class="label">Subscribers</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">📧</div>
+          <div class="value" id="emailsSent">0</div>
+          <div class="label">Emails Sent</div>
+        </div>
+      </div>
+
+      <!-- QUICK ADD - Just paste link! -->
+      <div class="card quick-add-card">
+        <h3>🔗 Quick Add - Paste Affiliate Link</h3>
+        <div class="quick-add-form">
+          <input 
+            type="url" 
+            id="quickLink" 
+            placeholder="Paste your affiliate link here (AliExpress, Amazon, eBay)..."
+            onpaste="handleLinkPaste(event)"
+          >
+          <button class="btn btn-primary" onclick="fetchProductData()" id="fetchBtn">
+            🔍 Fetch Data
+          </button>
+        </div>
+        <div id="fetchStatus" class="fetch-status hidden"></div>
+        
+        <!-- Fetched Product Preview -->
+        <div id="fetchedProduct" class="fetched-product hidden">
+          <div class="fetched-preview">
+            <img id="fetchedImage" src="" alt="Product">
+            <div class="fetched-info">
+              <input type="text" id="fetchedTitle" placeholder="Product Title">
+              <div class="fetched-row">
+                <div class="form-group">
+                  <label>Price ($)</label>
+                  <input type="number" id="fetchedPrice" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                  <label>Rating</label>
+                  <input type="number" id="fetchedRating" step="0.1" min="1" max="5" value="4.5">
+                </div>
+                <div class="form-group">
+                  <label>Platform</label>
+                  <select id="fetchedPlatform">
+                    <option value="aliexpress">AliExpress</option>
+                    <option value="amazon">Amazon</option>
+                    <option value="ebay">eBay</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Category</label>
+                  <select id="fetchedCategory">
+                    <option value="electronics">Electronics</option>
+                    <option value="fashion">Fashion</option>
+                    <option value="home">Home</option>
+                    <option value="beauty">Beauty</option>
+                    <option value="toys">Toys</option>
+                    <option value="sports">Sports</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <input type="url" id="fetchedImageUrl" placeholder="Image URL (auto-filled)">
+            </div>
+          </div>
+          <button class="btn btn-success btn-block" onclick="saveProduct()">
+            ✅ Add Product
+          </button>
+        </div>
+      </div>
+
+      <!-- Email Subscribers Section -->
+      <div class="card">
+        <div class="card-header">
+          <h3>👥 Email Subscribers</h3>
+          <span class="badge badge-success" id="subscriberCount">0 subscribers</span>
+        </div>
+        <div class="subscriber-add">
+          <input type="email" id="newSubscriberEmail" placeholder="Add new email address...">
+          <button class="btn btn-primary btn-sm" onclick="addSubscriber()">➕ Add</button>
+        </div>
+        <div id="subscriberList" class="subscriber-list-full"></div>
+      </div>
+
+      <!-- Products Section -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📦 Your Products</h3>
+          <div class="header-actions">
+            <span id="selectionInfo" class="selection-info">Select 5 for email</span>
+            <button class="btn btn-sm btn-secondary" onclick="deselectAll()">Clear Selection</button>
+          </div>
+        </div>
+        
+        <!-- Quick Filter -->
+        <div class="quick-filter">
+          <select id="filterPlatform" onchange="filterProducts()">
+            <option value="all">All Platforms</option>
+            <option value="aliexpress">AliExpress</option>
+            <option value="amazon">Amazon</option>
+            <option value="ebay">eBay</option>
+          </select>
+          <select id="sortBy" onchange="filterProducts()">
+            <option value="newest">Newest First</option>
+            <option value="score">Best Score</option>
+            <option value="price-low">Price: Low→High</option>
+          </select>
+        </div>
+        
+        <div id="productsGrid" class="products-grid"></div>
+        
+        <div id="emptyState" class="empty-state hidden">
+          <div class="icon">📦</div>
+          <h3>No Products Yet</h3>
+          <p>Paste an affiliate link above to get started!</p>
+        </div>
+      </div>
+
+      <!-- Action Bar (Fixed at bottom when products selected) -->
+      <div id="actionBar" class="action-bar hidden">
+        <div class="action-info">
+          <span id="actionCount">0</span> products selected
+        </div>
+        <div class="action-buttons">
+          <button class="btn btn-primary" onclick="goToEmail()">
+            📧 Email
+          </button>
+          <button class="btn btn-success" onclick="goToShare()">
+            🚀 Share All
+          </button>
+          <button class="btn btn-secondary" onclick="goToFacebook()">
+            📘 FB Posts
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSelected()">
+            🗑️
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit Product</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="editTitle">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Price ($)</label>
+            <input type="number" id="editPrice" step="0.01">
+          </div>
+          <div class="form-group">
+            <label>Rating</label>
+            <input type="number" id="editRating" step="0.1" min="1" max="5">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Image URL</label>
+          <input type="url" id="editImage">
+        </div>
+        <div class="form-group">
+          <label>Affiliate Link</label>
+          <input type="url" id="editLink">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEdit()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!Auth.requireAuth()) return;
+      document.getElementById('userEmail').textContent = Auth.getEmail();
+      initDashboard();
+    });
+  </script>
+</body>
+</html>

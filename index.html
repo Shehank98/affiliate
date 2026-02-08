@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Affiliate Hub</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-box">
+      <div class="logo">💰</div>
+      <h1>Affiliate Hub</h1>
+      <p>Enter your email to continue</p>
+      
+      <div id="alert" class="alert hidden"></div>
+      
+      <form id="loginForm">
+        <div class="form-group">
+          <input type="email" id="email" placeholder="Your email address" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">
+          🔐 Login
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    if (Auth.isLoggedIn()) {
+      window.location.href = 'dashboard.html';
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const alert = document.getElementById('alert');
+      
+      if (Auth.login(email)) {
+        alert.className = 'alert alert-success';
+        alert.textContent = '✓ Welcome! Redirecting...';
+        alert.classList.remove('hidden');
+        setTimeout(() => window.location.href = 'dashboard.html', 800);
+      } else {
+        alert.className = 'alert alert-error';
+        alert.textContent = '✗ Access denied. Unauthorized email.';
+        alert.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>
