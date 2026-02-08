@@ -1,9 +1,12 @@
 /**
  * ============================================
- * DASHBOARD MODULE - V2
+ * DASHBOARD MODULE - V3 with Google Sheets Sync
  * Auto-fetch product data from affiliate links
  * ============================================
  */
+
+// ⚠️ REPLACE WITH YOUR GOOGLE APPS SCRIPT WEB APP URL
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzTt02nsG0G-WqzsTt51367uId3awCXHqnwCHO02EZtsm0QSLBd4mqv3s5Tgo99_is/exec';
 
 let products = [];
 let filteredProducts = [];
@@ -15,7 +18,7 @@ let currentAffiliateLink = '';
 
 function initDashboard() {
   loadProducts();
-  loadSubscribers();
+  syncSubscribersFromSheet(); // Load from Google Sheets first
   loadStats();
 }
 
@@ -28,6 +31,49 @@ function loadStats() {
   document.getElementById('selectedProducts').textContent = prods.filter(p => p.selected).length;
   document.getElementById('totalSubscribers').textContent = subs.length;
   document.getElementById('emailsSent').textContent = stats.emailsSent || 0;
+}
+
+// ============================================
+// GOOGLE SHEETS SYNC FOR SUBSCRIBERS
+// ============================================
+
+async function syncSubscribersFromSheet() {
+  // Show loading state
+  const list = document.getElementById('subscriberList');
+  list.innerHTML = '<p class="empty-text">🔄 Loading subscribers from Google Sheets...</p>';
+  
+  try {
+    const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getSubscribers`, {
+      method: 'GET'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success && data.subscribers && Array.isArray(data.subscribers)) {
+      console.log(`✅ Loaded ${data.subscribers.length} subscribers from Google Sheets`);
+      
+      // Clear local storage
+      localStorage.removeItem('affiliate_subscribers');
+      
+      // Add each subscriber to local storage
+      data.subscribers.forEach(sub => {
+        // Only add if it's a valid email
+        if (sub.email && sub.email.includes('@')) {
+          Storage.addSubscriber(sub.email);
+        }
+      });
+      
+      loadSubscribers();
+      loadStats();
+      showToast(`✅ Synced ${data.subscribers.length} subscribers from Google Sheets`);
+    } else {
+      throw new Error('Invalid response from Google Sheets');
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not sync from Google Sheets:', error.message);
+    showToast('Using local subscribers data. Check Settings to configure Google Sheets.', 'warning');
+    loadSubscribers(); // Fallback to local storage
+  }
 }
 
 // ============================================
@@ -508,7 +554,7 @@ function loadSubscribers() {
   count.textContent = `${subscribers.length} subscribers`;
   
   if (subscribers.length === 0) {
-    list.innerHTML = '<p class="empty-text">No subscribers yet. Add emails above.</p>';
+    list.innerHTML = '<p class="empty-text">No subscribers yet. Add emails above or sync from Google Sheets.</p>';
     return;
   }
   
@@ -548,22 +594,32 @@ async function addSubscriber() {
     return;
   }
   
-  // Add locally
+  // Check if already exists
+  const existing = Storage.getSubscribers();
+  if (existing.some(s => s.email.toLowerCase() === email)) {
+    showToast('Email already exists!', 'error');
+    return;
+  }
+  
+  // Add to local storage
   Storage.addSubscriber(email);
   
-  // Sync to Google Sheet
-  const settings = Storage.getSettings();
-  if (settings.googleScriptUrl) {
-    try {
-      await fetch(settings.googleScriptUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'addSubscriber', email })
-      });
-    } catch (e) {
-      console.log('Could not sync to Google Sheet');
-    }
+  // Sync to Google Sheets
+  try {
+    const response = await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: 'addSubscriber', 
+        email: email 
+      })
+    });
+    
+    const result = await response.json();
+    console.log('Added to Google Sheets:', result);
+  } catch (error) {
+    console.warn('Could not sync to Google Sheets:', error);
+    showToast('Added locally (Google Sheets sync failed)', 'warning');
   }
   
   input.value = '';
