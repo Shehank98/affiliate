@@ -1,10 +1,11 @@
 /**
- * EMAIL MODULE - V3
- * 3 Professional Email Templates
+ * EMAIL MODULE - V4
+ * 3 Professional Email Templates + Batch Sending
  */
 
 let products = [];
 let emailHtml = '';
+let statusCheckInterval = null;
 
 function initEmail() {
   products = Storage.getSelectedProducts();
@@ -20,6 +21,9 @@ function initEmail() {
   if (products.length > 0) {
     generatePreview();
   }
+  
+  // Check if there's an ongoing campaign
+  checkCampaignStatus();
 }
 
 function displaySelectedProducts() {
@@ -65,6 +69,84 @@ function generatePreview() {
   
   document.getElementById('preview').innerHTML = emailHtml;
   document.getElementById('htmlCode').value = emailHtml;
+}
+
+// ============================================
+// CAMPAIGN STATUS MANAGEMENT
+// ============================================
+
+async function checkCampaignStatus() {
+  const settings = Storage.getSettings();
+  if (!settings.googleScriptUrl) return;
+  
+  try {
+    const response = await fetch(`${settings.googleScriptUrl}?action=getCampaignStatus`);
+    const status = await response.json();
+    
+    if (status.success && status.inProgress) {
+      showCampaignProgress(status);
+    } else {
+      hideCampaignProgress();
+    }
+  } catch (e) {
+    console.log('Could not check campaign status:', e);
+  }
+}
+
+function showCampaignProgress(status) {
+  // Create or update progress bar
+  let progressDiv = document.getElementById('campaignProgress');
+  if (!progressDiv) {
+    progressDiv = document.createElement('div');
+    progressDiv.id = 'campaignProgress';
+    progressDiv.className = 'campaign-progress';
+    const firstCard = document.querySelector('.card');
+    if (firstCard) {
+      firstCard.parentNode.insertBefore(progressDiv, firstCard);
+    }
+  }
+  
+  const progress = Math.round((status.sentCount / status.totalEmails) * 100);
+  
+  progressDiv.innerHTML = `
+    <div class="alert alert-info">
+      <h4>📊 Campaign in Progress</h4>
+      <p><strong>${status.subject}</strong></p>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width: ${progress}%"></div>
+      </div>
+      <p style="margin: 10px 0;">${status.sentCount} of ${status.totalEmails} sent (${progress}%)</p>
+      <p><small>Started: ${new Date(status.startedAt).toLocaleString()}</small></p>
+      ${status.remaining > 0 ? `
+        <p class="warning-text">⚠️ ${status.remaining} emails remaining. Daily limit reached.</p>
+        <button class="btn btn-primary btn-sm" onclick="resumeCampaign()">
+          📧 Send Next Batch (Resume)
+        </button>
+      ` : `
+        <p class="success-text">✅ Campaign completed!</p>
+      `}
+    </div>
+  `;
+  
+  // Disable send button if campaign in progress
+  const sendBtn = document.querySelector('button[onclick="sendToAll()"]');
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = '⏸️ Campaign in Progress';
+  }
+}
+
+function hideCampaignProgress() {
+  const progressDiv = document.getElementById('campaignProgress');
+  if (progressDiv) {
+    progressDiv.remove();
+  }
+  
+  const sendBtn = document.querySelector('button[onclick="sendToAll()"]');
+  if (sendBtn) {
+    sendBtn.disabled = false;
+    sendBtn.textContent = '🚀 Send to All Subscribers';
+  }
 }
 
 // ============================================
@@ -303,7 +385,7 @@ function generateGridTemplate({ products, subject, intro, brandName, settings })
 }
 
 // ============================================
-// SEND FUNCTIONS
+// SEND FUNCTIONS WITH BATCH SUPPORT
 // ============================================
 
 async function sendTest() {
@@ -337,14 +419,27 @@ async function sendToAll() {
   
   const subscribers = Storage.getSubscribers();
   if (subscribers.length === 0) { alert('No subscribers!'); return; }
-  if (!confirm(`Send to ${subscribers.length} subscribers?`)) return;
   
   if (!emailHtml) generatePreview();
   
+  // Show warning if over daily limit
+  if (subscribers.length > 100) {
+    const confirmed = confirm(
+      `You have ${subscribers.length} subscribers.\n\n` +
+      `⚠️ Gmail has a daily limit of 100 emails.\n\n` +
+      `This campaign will:\n` +
+      `• Send 90 emails today\n` +
+      `• Remaining ${subscribers.length - 90} will be sent tomorrow\n\n` +
+      `Continue?`
+    );
+    if (!confirmed) return;
+  } else {
+    if (!confirm(`Send to ${subscribers.length} subscribers?`)) return;
+  }
+  
   try {
-    await fetch(settings.googleScriptUrl, {
+    const response = await fetch(settings.googleScriptUrl, {
       method: 'POST',
-      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'sendToAll',
@@ -352,8 +447,61 @@ async function sendToAll() {
         htmlBody: emailHtml
       })
     });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      if (result.remaining && result.remaining > 0) {
+        showToast(`✅ Sent ${result.sentThisBatch} emails! ${result.remaining} remaining for tomorrow.`);
+        // Show progress UI
+        setTimeout(() => checkCampaignStatus(), 1000);
+      } else {
+        showToast('Campaign started!');
+        // Record in history
+        Storage.addEmailHistory({
+          subject: document.getElementById('emailSubject').value,
+          recipientCount: subscribers.length,
+          template: document.getElementById('templateSelect').value
+        });
+      }
+    } else {
+      throw new Error(result.error || 'Failed to start campaign');
+    }
+  } catch (e) {
+    console.error(e);
+    // Fallback for no-cors mode
     showToast('Campaign started!');
-  } catch (e) { alert('Error'); }
+  }
+}
+
+async function resumeCampaign() {
+  const settings = Storage.getSettings();
+  
+  if (!confirm('Resume sending the campaign? This will send the next batch of emails.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch(settings.googleScriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'resumeCampaign'
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      showToast(result.message || 'Batch sent successfully!');
+      // Refresh status
+      setTimeout(() => checkCampaignStatus(), 2000);
+    } else {
+      alert('Error: ' + (result.error || 'Failed to resume'));
+    }
+  } catch (e) {
+    alert('Error resuming campaign');
+  }
 }
 
 function copyHtml() {
@@ -388,5 +536,5 @@ function showToast(msg) {
   toast.className = 'toast success';
   toast.textContent = msg;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
+  setTimeout(() => toast.remove(), 4000);
 }
